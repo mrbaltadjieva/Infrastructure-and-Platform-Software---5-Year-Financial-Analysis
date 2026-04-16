@@ -1,0 +1,2 @@
+# Infrastructure-and-Platform-Software---5-Year-Financial-Analysis
+This analysis compares infrastructure &amp; platform software companies through stock performance, revenue, margins, and cash flow. As I work within the industry, I’m using it to track how different firms respond to AI-driven shifts, highlighting divergence in execution, financial strength, and market perception to separate transformation from noise.
