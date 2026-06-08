@@ -1,0 +1,79 @@
+"""
+data/prices.py
+==============
+Downloads and normalises historical price data via yfinance.
+"""
+
+import time
+import pandas as pd
+import yfinance as yf
+
+
+def collect_price_data(tickers: list[str], retries: int = 3) -> pd.DataFrame:
+    """Download 5-year monthly adjusted close prices for all tickers.
+
+    Normalises the yfinance response so the caller always receives a plain
+    DataFrame with one column per ticker symbol, regardless of whether
+    one or many tickers were requested.
+
+    Parameters
+    ----------
+    tickers:
+        List of Yahoo Finance ticker symbols, e.g. ["PRGS", "CVLT"].
+    retries:
+        Number of attempts before giving up (exponential backoff).
+
+    Returns
+    -------
+    pd.DataFrame
+        Monthly adjusted close prices indexed by date.
+        Returns an empty DataFrame on failure.
+    """
+    for attempt in range(retries):
+        try:
+            raw = yf.download(
+                tickers,
+                period="5y",
+                interval="1mo",
+                auto_adjust=True,
+                progress=False,
+            )
+
+            if isinstance(raw.columns, pd.MultiIndex):
+                raw = raw["Close"]
+            elif "Close" in raw.columns:
+                raw = raw[["Close"]]
+                if len(tickers) == 1:
+                    raw.columns = tickers
+
+            return raw.dropna(how="all")
+
+        except Exception as e:
+            if attempt < retries - 1:
+                print(f"  Price fetch attempt {attempt + 1} failed ({e}), retrying...")
+                time.sleep(2 ** attempt)
+            else:
+                print(f"  Warning: price data unavailable after {retries} attempts: {e}")
+
+    return pd.DataFrame()
+
+
+def indexed_prices(prices: pd.DataFrame) -> pd.DataFrame:
+    """Normalise each price series to 100 at its first non-NaN observation.
+
+    A value of 120 means the stock is up 20 % from the base date;
+    80 means it is down 20 %.
+
+    Parameters
+    ----------
+    prices:
+        Raw adjusted close prices (one column per ticker).
+
+    Returns
+    -------
+    pd.DataFrame
+        Same shape as input, each column rescaled so its first valid
+        value equals 100.
+    """
+    first = prices.bfill().iloc[0]
+    return (prices / first * 100).round(2)
